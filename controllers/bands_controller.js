@@ -1,11 +1,8 @@
-// DEPENDENCIES
 const bands = require('express').Router()
 const db = require('../models')
-const { Band } = db 
-
-// DEPENDENCIES 
+const { Band, MeetGreet, SetTime, Event } = db 
 const { Op } = require('sequelize')
-   
+
 // FIND ALL BANDS
 bands.get('/', async (req, res) => {
     try {
@@ -22,20 +19,42 @@ bands.get('/', async (req, res) => {
 })
 
 // FIND A SPECIFIC BAND
-bands.get('/:id', async (req, res) => {
-    // console.log("req.params.id: is about to run")
-    // console.log("req.params.id: ", req.params.id)
+bands.get('/:name', async (req, res) => {
     try {
-      const foundBand = await Band.findOne({
-        where: { band_id: req.params.id }
-      })
-      res.status(200).json(foundBand)
+        const foundBand = await Band.findOne({
+            where: { name: req.params.name },
+            include: [
+                { 
+                    model: MeetGreet, 
+                    as: "meet_greets", 
+                    attributes: { exclude: ["band_id", "event_id"] },
+                    include: { 
+                        model: Event, 
+                        as: "event", 
+                        where: { name: { [Op.like]: `%${req.query.event ? req.query.event : ''}%` } } 
+                    }
+                },
+                { 
+                    model: SetTime, 
+                    as: "set_times",
+                    attributes: { exclude: ["band_id", "event_id"] },
+                    include: { 
+                        model: Event, 
+                        as: "event", 
+                        where: { name: { [Op.like]: `%${req.query.event ? req.query.event : ''}%` } } 
+                    }
+                }
+            ],
+            order: [
+                [{ model: MeetGreet, as: "meet_greets" }, { model: Event, as: "event" }, 'date', 'DESC'],
+                [{ model: SetTime, as: "set_times" }, { model: Event, as: "event" }, 'date', 'DESC']
+            ]
+        })
+        res.status(200).json(foundBand)
     } catch (error) {
-      res.status(500).json(error)
+        res.status(500).json(error)
     }
-  })
-  
-
+})
 
 // CREATE A BAND
 bands.post('/', async (req, res) => {
